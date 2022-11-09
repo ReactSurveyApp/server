@@ -1,3 +1,5 @@
+
+
 /*create a http server using express*/
 
 const express = require('express');
@@ -7,11 +9,12 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const sql = require('mssql')
 
+
 const webconfig = {
     user: "sa",
     password: "123456",
     database: "survey",
-    server: 'DESKTOP-5DT7LH0',
+    server: 'DESKTOP-RKVVLOQ',
     pool: {
         max: 10,
         min: 0,
@@ -36,7 +39,8 @@ let questionsData = [];
 
 app.post("/question_data", cors(), async (req, res) => {
     questionsData = req.body;
-    console.log(JSON.stringify(questionsData));
+    console.log(questionsData);
+    res.send(JSON.stringify(questionsData));
 });
 
 app.get('/question_data', cors(), async (req, res) => {
@@ -57,10 +61,10 @@ app.post('/add_admin', cors(), async (req, res) => {
             let pool = await sql.connect(webconfig)
             let result = await pool.request()
                 .query(`INSERT INTO TBLUsers (Username, Password, Eposta) VALUES ('${un}', '${pw}', '${mail}')`)
-            console.log(result)
+            // console.log(result)
         }
         catch (err) {
-            console.log(err)
+            // console.log(err)
         }
     }
 );
@@ -71,9 +75,28 @@ app.get('/add_admin', cors(), async (req, res) => {
 
 let adminLoginData = {};
 
-app.post('/admin-login', cors(), (req, res) => {
+app.post('/admin-login', cors(), async (req, res) => {
     adminLoginData = req.body;
-    res.send('success');
+    let un = (adminLoginData.username)
+    let pw = (adminLoginData.password)
+    // res.send('success');
+    try {
+        let pool = await sql.connect(webconfig)
+        await pool.query(`SELECT * FROM TBLUsers WHERE Username = N'${un}' AND Password = N'${pw}'`,(err,data)=>{
+            if(err){
+                throw err;
+            }
+            // console.log(data.recordset.length)
+            if(data.recordset.length>0){
+                res.send('success')
+            }else{
+                res.send('error')
+            }
+        })
+    }
+    catch (err) {
+        // console.log(err)
+    }
 })
 
 app.get('/admin-login', cors(), async (req, res) => {
