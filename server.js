@@ -1,14 +1,11 @@
 
-
-/*create a http server using express*/
-
 const express = require('express');
 const app = express();
 const server = require('http').createServer(app);
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const sql = require('mssql')
-
+const session = require('express-session');
 
 const webconfig = {
     user: "sa",
@@ -26,6 +23,13 @@ const webconfig = {
     }
 }
 
+app.use(session({
+
+    secret: 'Özel-Anahtar-123-123',
+    resave: false,
+    saveUninitialized: true
+}));
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors())
 app.use(bodyParser.json());
@@ -42,22 +46,22 @@ app.post("/question_data", cors(), async (req, res) => {
     questionsData = req.body;
     res.send(JSON.stringify((questionsData)));
     let pool = await sql.connect(webconfig);
-    let guid = String(Date.now()) ;
+    let guid = String(Date.now());
     for (let i = 0; i < questionsData.questionsData.length; i++) {
         console.log(questionsData.questionsData[i].question);
-        
+
         try {
             let result = await pool.request()
-            .query(`INSERT INTO TBLSorular (Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${guid}', '${questionsData.questionsData[i].question}', 'Çoktan Seçmeli', 1, 0)`);
+                .query(`INSERT INTO TBLSorular (Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${guid}', '${questionsData.questionsData[i].question}', 'Çoktan Seçmeli', 1, 0)`);
         }
         catch (err) {
             console.log(err);
         }
-        
+
         for (let j = 0; j < questionsData.questionsData[i].answers.length; j++) {
             try {
                 let result = await pool.request()
-                .query(`INSERT INTO TBLCevaplar (SoruID, TextCevap, IsActive, IsDeleted) values ('${questionsData.questionsData[i].answers[j].qid}', '${questionsData.questionsData[i].answers[j].answer}', 1, 0)`);
+                    .query(`INSERT INTO TBLCevaplar (SoruID, TextCevap, IsActive, IsDeleted) values ('${questionsData.questionsData[i].answers[j].qid}', '${questionsData.questionsData[i].answers[j].answer}', 1, 0)`);
             }
             catch (err) {
                 console.log(err);
@@ -86,6 +90,7 @@ app.post('/add_admin', cors(), async (req, res) => {
         let result = await pool.request()
             .query(`INSERT INTO TBLUsers (Username, Password, Eposta) VALUES ('${un}', '${pw}', '${mail}')`)
         // console.log(result)
+
     }
     catch (err) {
         console.log(err)
@@ -95,6 +100,7 @@ app.post('/add_admin', cors(), async (req, res) => {
 
 app.get('/add_admin', cors(), async (req, res) => {
     res.send(adminData);
+    console.log("Session: " + req.session.adminSession);
 });
 
 let adminLoginData = {};
@@ -113,6 +119,8 @@ app.post('/admin-login', cors(), async (req, res) => {
             // console.log(data.recordset.length)
             if (data.recordset.length > 0) {
                 res.send('success')
+                req.session.adminSession = "session-" + un;
+                console.log("Session oluşturuldu...");
             } else {
                 res.send('error')
             }
