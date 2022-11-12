@@ -40,6 +40,18 @@ app.get('/', cors(), async (req, res) => {
 });
 
 let questionsData = [];
+let surveyName = ""
+
+//survey_name endpointinden gelen datayı alıyoruz
+app.post('/survey_name', cors(), async (req, res) => {
+    surveyName = req.body;
+    console.log(surveyName.surveyName);
+    res.send('working!')
+});
+
+app.get('/survey_name', cors(), async (req, res) => {
+    res.send(surveyName)
+});
 
 //oluşturulan anket verisini post eder
 app.post("/question_data", cors(), async (req, res) => {
@@ -52,8 +64,9 @@ app.post("/question_data", cors(), async (req, res) => {
 
         try {
             let result = await pool.request()
-                .query(`INSERT INTO TBLSorular (Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${guid}', '${questionsData.questionsData[i].question}', 'Çoktan Seçmeli', 1, 0)`);
+                .query(`INSERT INTO TBLSorular (SoruID, Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${questionsData.questionsData[i].id}','${guid}', '${questionsData.questionsData[i].question}', 'Çoktan Seçmeli', 1, 0)`);
         }
+
         catch (err) {
             console.log(err);
         }
@@ -66,6 +79,13 @@ app.post("/question_data", cors(), async (req, res) => {
             catch (err) {
                 console.log(err);
             }
+        }
+        try {
+            let result = await pool.request()
+                .query(`INSERT INTO TBLAnket (AnketAdi, Guid, IslemTarihi, IsActive, IsDeleted) values ('${surveyName.surveyName}', '${guid}', GETDATE(), 1, 0)`);
+        }
+        catch (err) {
+            console.log(err.message);
         }
     }
 }
@@ -134,6 +154,35 @@ app.post('/admin-login', cors(), async (req, res) => {
 app.get('/admin-login', cors(), async (req, res) => {
     res.send(adminLoginData)
 })
+
+let anketData = "1231232"
+
+app.post('/surveys', cors(), async (req, res) => {
+    let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx"
+    let pool = await sql.connect(webconfig);
+
+    await pool.query(queryString, (err, data) => {
+        if (err) console.log(err.message)
+        console.log("çalıştı")
+        console.log(data.recordset)
+    })  
+
+})
+
+app.get('/surveys', cors(), async(req, res) => {
+    let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx"
+    let pool = await sql.connect(webconfig);
+
+    await pool.query(queryString, (err, data) => {
+        if (err) console.log(err.message)
+        console.log("çalıştı")
+        console.log(data.recordset)
+        res.send(data.recordset)
+    })
+
+    
+})
+
 
 server.listen(8080, function () {
     console.log('Server listening at port %d', 8080);
