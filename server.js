@@ -24,7 +24,6 @@ const webconfig = {
 }
 
 app.use(session({
-
     secret: 'Özel-Anahtar-123-123',
     resave: false,
     saveUninitialized: true
@@ -59,18 +58,16 @@ app.post("/question_data", cors(), async (req, res) => {
     res.send(JSON.stringify((questionsData)));
     let pool = await sql.connect(webconfig);
     let guid = String(Date.now());
-    for (let i = 0; i < questionsData.questionsData.length; i++) {
-        console.log(questionsData.questionsData[i].question);
 
+    for (let i = 0; i < questionsData.questionsData.length; i++) {
+        
         try {
             let result = await pool.request()
                 .query(`INSERT INTO TBLSorular (SoruID, Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${questionsData.questionsData[i].id}','${guid}', '${questionsData.questionsData[i].question}', 'Çoktan Seçmeli', 1, 0)`);
         }
-
         catch (err) {
             console.log(err);
         }
-
         for (let j = 0; j < questionsData.questionsData[i].answers.length; j++) {
             try {
                 let result = await pool.request()
@@ -80,13 +77,13 @@ app.post("/question_data", cors(), async (req, res) => {
                 console.log(err);
             }
         }
-        try {
-            let result = await pool.request()
-                .query(`INSERT INTO TBLAnket (AnketAdi, Guid, IslemTarihi, IsActive, IsDeleted) values ('${surveyName.surveyName}', '${guid}', GETDATE(), 1, 0)`);
-        }
-        catch (err) {
-            console.log(err.message);
-        }
+    }
+    try {
+        let result = await pool.request()
+            .query(`INSERT INTO TBLAnket (AnketAdi, Guid, IslemTarihi, IsActive, IsDeleted) values ('${surveyName.surveyName}', '${guid}', GETDATE(), 1, 0)`);
+    }
+    catch (err) {
+        console.log(err.message);
     }
 }
 );
@@ -155,7 +152,6 @@ app.get('/admin-login', cors(), async (req, res) => {
     res.send(adminLoginData)
 })
 
-let anketData = "1231232"
 
 app.post('/surveys', cors(), async (req, res) => {
     let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx"
@@ -165,11 +161,11 @@ app.post('/surveys', cors(), async (req, res) => {
         if (err) console.log(err.message)
         console.log("çalıştı")
         console.log(data.recordset)
-    })  
+    })
 
 })
 
-app.get('/surveys', cors(), async(req, res) => {
+app.get('/surveys', cors(), async (req, res) => {
     let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx"
     let pool = await sql.connect(webconfig);
 
@@ -179,11 +175,60 @@ app.get('/surveys', cors(), async(req, res) => {
         console.log(data.recordset)
         res.send(data.recordset)
     })
-
-    
 })
 
+app.post('/survey-input', cors(), async (req, res) => {
+    let surveyGuid = req.body.guid;
+    let queryString = `SELECT * FROM TBLSorular WHERE Guid = '${surveyGuid}'`
+    // let queryString2 = `SELECT A.ID AS SORUNUNID, A.Guid, A.TextSoru AS SORUNUNTEXT,A.Tip AS SORUNUNTIPI,Q.ID AS CEVABINID,Q.TextCevap AS CEVABINTEXTI, T.AnketAdi FROM TBLSorular as A WITH (NOLOCK) LEFT JOIN TBLCevaplar AS Q WITH (NOLOCK) ON A.SoruID = Q.SoruID LEFT JOIN TBLAnket AS T WITH (NOLOCK) ON A.Guid = T.Guid WHERE A.Guid='${surveyGuid}'`
+    let pool = await sql.connect(webconfig)
+    await pool.query(queryString, (err, data) => {
+        if (err) {
+            console.log(err.message);
+        }
+        res.send(data.recordset);
+        // if (data.recordset.length > 0) {
+        //     // res.send(data.recordset)
+        //     pool.query(queryString2, (err, data2) => {
+        //         if (err) {
+        //             console.log(err.message);
+        //         }
 
+        //         res.send(data2.recordset);
+        //     })
+
+        // } else {
+        //     res.send('ANKET GELMEDİ!!')
+        // }
+    })
+    console.log(req.body.guid)
+})
+
+app.post('/get-survey-name', cors(), async(req, res) => {
+
+    let guid = req.body.guid
+    let queryString = `SELECT AnketAdi FROM TBLAnket WHERE Guid = '${guid}'`
+    let pool = await sql.connect(webconfig)
+    
+    await pool.query(queryString, (err, data) => {
+        if (err) {
+            console.log(err.message);
+        }
+        res.send(data.recordset[0].AnketAdi)
+    })
+})
+
+app.post('/answers', cors(), async(req, res) => {
+
+    let queryString = `SELECT * FROM TBLCevaplar`
+    let pool = await sql.connect(webconfig)
+    await pool.query(queryString, (err, data) => {
+        if (err) {
+            console.log(err.message);
+        }
+        res.send(data.recordset);
+    })
+})
 server.listen(8080, function () {
     console.log('Server listening at port %d', 8080);
 }
