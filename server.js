@@ -6,11 +6,13 @@ const bodyParser = require('body-parser');
 const sql = require('mssql')
 const session = require('express-session');
 
+const cookieParser = require('cookie-parser');
+
 const webconfig = {
     user: "sa",
     password: "123456",
     database: "survey",
-    server: 'ABS-DEV',
+    server: 'DESKTOP-L630DBC',
     pool: {
         max: 10,
         min: 0,
@@ -22,14 +24,31 @@ const webconfig = {
     }
 }
 
-app.use(session({
-    secret: 'Özel-Anahtar-123-123',
-    resave: false,
-    saveUninitialized: true
-}));
+app.use(express.json());
 
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cors())
+app.use(
+    cors(
+        // {
+        // origin: ["http://localhost:8080/"],
+        // methods: ["GET", "POST"],
+        // credentials: true,
+        // }
+    )
+);
+
+app.use(cookieParser());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(session({
+    key: "userId",
+    secret: "secretkey",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        expires: 60 * 60 * 24
+    }
+}))
+
 app.use(bodyParser.json());
 /*run this server in 8080*/
 
@@ -59,7 +78,7 @@ app.post("/question_data", cors(), async (req, res) => {
     let guid = String(Date.now());
 
     for (let i = 0; i < questionsData.questionsData.length; i++) {
-        
+
         try {
             let result = await pool.request()
                 .query(`INSERT INTO TBLSorular (SoruID, Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${questionsData.questionsData[i].id}','${guid}', '${questionsData.questionsData[i].question}', 'Çoktan Seçmeli', 1, 0)`);
@@ -120,11 +139,12 @@ app.get('/add_admin', cors(), async (req, res) => {
 });
 
 let adminLoginData = {};
-
+let x = 0;
 app.post('/admin-login', cors(), async (req, res) => {
     adminLoginData = req.body;
     let un = (adminLoginData.username)
     let pw = (adminLoginData.password)
+
     // res.send('success');
     try {
         let pool = await sql.connect(webconfig)
@@ -134,9 +154,9 @@ app.post('/admin-login', cors(), async (req, res) => {
             }
             // console.log(data.recordset.length)
             if (data.recordset.length > 0) {
+                x = data.recordset.length;
                 res.send('success')
-                req.session.adminSession = "session-" + un;
-                console.log("Session oluşturuldu...");
+                console.log(typeof req.session.user);
             } else {
                 res.send('error')
             }
@@ -148,7 +168,11 @@ app.post('/admin-login', cors(), async (req, res) => {
 })
 
 app.get('/admin-login', cors(), async (req, res) => {
-    res.send(adminLoginData)
+    if (x > 0) {
+        res.send({ loggedIn: true, user: req.session.user });
+    } else {
+        res.send({ loggedIn: false });
+    }
 })
 
 
@@ -158,8 +182,7 @@ app.post('/surveys', cors(), async (req, res) => {
 
     await pool.query(queryString, (err, data) => {
         if (err) console.log(err.message)
-        console.log("çalıştı")
-        console.log(data.recordset)
+
     })
 
 })
@@ -170,11 +193,33 @@ app.get('/surveys', cors(), async (req, res) => {
 
     await pool.query(queryString, (err, data) => {
         if (err) console.log(err.message)
-        console.log("çalıştı")
-        console.log(data.recordset)
         res.send(data.recordset)
     })
 })
+
+app.post('/save-selected', cors(), async(req, res) => {
+
+    let guid = req.body.guid
+    let questionId = req.body.questionId
+    let answerId = req.body.answerId
+
+    let queryString = `INSERT INTO TBLAnketCevap (Guid, SoruID, CevapID) values ('${guid}', '${questionId}', '${answerId}')`
+
+    let pool = await sql.connect(webconfig) //neden her requestte dbye tekrar bağlanıyoruz amk bence bunu dışarıda tutmak lazım - samet
+    await pool.request()
+    .query(queryString)
+})
+
+app.get('/get-selected', cors(), async (req, res) => {
+    let queryString = "SELECT * FROM TBLAnketCevap"
+    let pool = await sql.connect(webconfig);
+
+    await pool.query(queryString, (err, data) => {
+        if (err) console.log(err.message)
+        res.send(data.recordset)
+    })
+})
+
 
 app.post('/survey-input', cors(), async (req, res) => {
     let surveyGuid = req.body.guid;
@@ -185,30 +230,17 @@ app.post('/survey-input', cors(), async (req, res) => {
         if (err) {
             console.log(err.message);
         }
+        console.log(data.recordset)
         res.send(data.recordset);
-        // if (data.recordset.length > 0) {
-        //     // res.send(data.recordset)
-        //     pool.query(queryString2, (err, data2) => {
-        //         if (err) {
-        //             console.log(err.message);
-        //         }
-
-        //         res.send(data2.recordset);
-        //     })
-
-        // } else {
-        //     res.send('ANKET GELMEDİ!!')
-        // }
     })
-    console.log(req.body.guid)
 })
 
-app.post('/get-survey-name', cors(), async(req, res) => {
+app.post('/get-survey-name', cors(), async (req, res) => {
 
     let guid = req.body.guid
     let queryString = `SELECT AnketAdi FROM TBLAnket WHERE Guid = '${guid}'`
     let pool = await sql.connect(webconfig)
-    
+
     await pool.query(queryString, (err, data) => {
         if (err) {
             console.log(err.message);
@@ -217,7 +249,7 @@ app.post('/get-survey-name', cors(), async(req, res) => {
     })
 })
 
-app.post('/answers', cors(), async(req, res) => {
+app.post('/answers', cors(), async (req, res) => {
 
     let queryString = `SELECT * FROM TBLCevaplar`
     let pool = await sql.connect(webconfig)
