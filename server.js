@@ -139,7 +139,8 @@ app.get('/add_admin', cors(), async (req, res) => {
 });
 
 let adminLoginData = {};
-let x = 0;
+let loginStatus = false
+
 app.post('/admin-login', cors(), async (req, res) => {
     adminLoginData = req.body;
     let un = (adminLoginData.username)
@@ -154,11 +155,11 @@ app.post('/admin-login', cors(), async (req, res) => {
             }
             // console.log(data.recordset.length)
             if (data.recordset.length > 0) {
-                x = data.recordset.length;
                 res.send('success')
-                console.log(typeof req.session.user);
+                loginStatus = true
             } else {
                 res.send('error')
+                loginStatus=false
             }
         })
     }
@@ -168,13 +169,12 @@ app.post('/admin-login', cors(), async (req, res) => {
 })
 
 app.get('/admin-login', cors(), async (req, res) => {
-    if (x > 0) {
-        res.send({ loggedIn: true, user: req.session.user });
-    } else {
-        res.send({ loggedIn: false });
-    }
+    res.send(loginStatus)
 })
 
+app.post('/log-out', cors(), async (req, res) => {
+    loginStatus = false
+})
 
 app.post('/surveys', cors(), async (req, res) => {
     let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx"
@@ -213,7 +213,7 @@ app.post('/save-selected', cors(), async(req, res) => {
 app.get('/get-selected', cors(), async (req, res) => {
     let queryString = "SELECT * FROM TBLAnketCevap"
     let pool = await sql.connect(webconfig);
-
+ 
     await pool.query(queryString, (err, data) => {
         if (err) console.log(err.message)
         res.send(data.recordset)
