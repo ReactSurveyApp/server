@@ -177,7 +177,7 @@ app.post('/log-out', cors(), async (req, res) => {
 })
 
 app.post('/surveys', cors(), async (req, res) => {
-    let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx"
+    let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi, yy.SoruSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx OUTER APPLY (SELECT COUNT(*) as SoruSayisi FROM TBLSorular as AnketSoruSayisi WHERE S.Guid = AnketSoruSayisi.Guid)yy"
     let pool = await sql.connect(webconfig);
 
     await pool.query(queryString, (err, data) => {
@@ -188,7 +188,7 @@ app.post('/surveys', cors(), async (req, res) => {
 })
 
 app.get('/surveys', cors(), async (req, res) => {
-    let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx"
+    let queryString = "SELECT S.* ,CASE WHEN S.IsActive = 1 THEN 'Anket Aktif' ELSE 'Anket Pasif Durumdadır.' END AS AnketDurumu, xx.AnketiYapanKullaniciSayisi, yy.SoruSayisi FROM TBLAnket AS S WITH (NOLOCK) OUTER APPLY (SELECT COUNT(*) as AnketiYapanKullaniciSayisi from TBLAnketCevap AS K WITH (NOLOCK) WHERE K.Guid = S.Guid)xx OUTER APPLY (SELECT COUNT(*) as SoruSayisi FROM TBLSorular as AnketSoruSayisi WHERE S.Guid = AnketSoruSayisi.Guid)yy"
     let pool = await sql.connect(webconfig);
 
     await pool.query(queryString, (err, data) => {
@@ -213,13 +213,25 @@ app.post('/save-selected', cors(), async(req, res) => {
 app.get('/get-selected', cors(), async (req, res) => {
     let queryString = "SELECT * FROM TBLAnketCevap"
     let pool = await sql.connect(webconfig);
- 
     await pool.query(queryString, (err, data) => {
         if (err) console.log(err.message)
         res.send(data.recordset)
     })
 })
 
+app.post('/get-answer-count', cors(), async (req,res) => {
+    let qid = req.body.qid
+    let aid = req.body.aid
+
+    let queryString = `SELECT COUNT(CevapID) as sayi FROM TBLAnketCevap WHERE SoruID = '${qid}' AND CevapID='${aid}'`
+    let pool = await sql.connect(webconfig)
+
+    await pool.query(queryString, (err, data) => {
+        if (err) console.log(err.message)
+        res.send(String(data.recordset[0].sayi))
+
+    })
+})
 
 app.post('/survey-input', cors(), async (req, res) => {
     let surveyGuid = req.body.guid;
@@ -260,6 +272,21 @@ app.post('/answers', cors(), async (req, res) => {
         res.send(data.recordset);
     })
 })
+
+app.post('/distinct-answer-count', cors(), async (req, res) => {
+    let soruid = req.body.soruid
+    let pool = await sql.connect(webconfig)
+    let queryString = `SELECT DISTINCT CevapID FROM TBLAnketCevap WHERE SoruID = '${soruid}'`
+
+    await pool.query(queryString, (err,data ) => {
+        if(err) {
+            console.log(err)
+        }
+        res.send(data.recordset)
+        console.log(data.recordset)
+    })
+})
+
 server.listen(8080, function () {
     console.log('Server listening at port %d', 8080);
 }
