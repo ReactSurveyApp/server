@@ -81,12 +81,12 @@ app.post("/question_data", cors(), async (req, res) => {
 
         try {
             let result = await pool.request()
-                .query(`INSERT INTO TBLSorular (SoruID, Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${questionsData.questionsData[i].id}','${guid}', '${questionsData.questionsData[i].question}', 'Çoktan Seçmeli', 1, 0)`);
+                .query(`INSERT INTO TBLSorular (SoruID, Guid, TextSoru, Tip, IsActive, IsDeleted) values ('${questionsData.questionsData[i].id}','${guid}', '${questionsData.questionsData[i].question}', '${questionsData.questionsData[i].type}', 1, 0)`);
         }
         catch (err) {
             console.log(err);
         }
-        for (let j = 0; j < questionsData.questionsData[i].answers.length; j++) {
+        for (let j = 0; j < questionsData.questionsData[i].answers?.length; j++) {
             try {
                 let result = await pool.request()
                     .query(`INSERT INTO TBLCevaplar (SoruID, TextCevap, IsActive, IsDeleted) values ('${questionsData.questionsData[i].answers[j].qid}', '${questionsData.questionsData[i].answers[j].answer}', 1, 0)`);
